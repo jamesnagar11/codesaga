@@ -1,8 +1,4 @@
-import NavUserIcon from "@/components/NavUserIcon";
-import ProblemNavIcon from "@/components/ProblemNavIcon";
-import RunButton from "@/components/RunButton";
-import SplitPage from "@/components/SplitPage";
-import Stopwatch from "@/components/Stopwatch";
+import ProblemLayout from "@/components/ProblemLayout";
 import { globalPrismaClient } from "@/lib/prisma";
 
 export type Example = {
@@ -56,41 +52,26 @@ async function getProblemInfo(problemURL: string) {
     })
     return problem;
   } catch (error) {
-    alert(error)
+    console.error(error)
     return null;
   }
 }
 
-const page = async(context: { params: Promise<{ slug?: string[] }> }) => {
+const page = async (context: { params: Promise<{ slug?: string[] }> }) => {
   const { slug } = await context.params;
-      if (!slug || slug.length === 0) {
-          return null;
-      }
+  if (!slug || slug.length === 0) {
+    return null;
+  }
   const problemURL = slug[0]
   const pageType = slug[1] ? slug[1] : 'description';
   const problemInfo = await getProblemInfo(problemURL);
-  
+
   return (
-    <div>
-      {/* Navbar */}
-        <div className="bg-[#0f0f0f] h-16 flex items-center p-3 justify-between">
-        <ProblemNavIcon/>
-
-            <div className="flex items-center justify-center gap-2 flex-none">
-              <RunButton problemURL={problemURL} topics={problemInfo?.topics} />
-              <Stopwatch/>
-            </div>
-
-            <div className="flex-1 flex justify-end items-center gap-10">
-              <NavUserIcon />
-              <div className="cursor-pointer items-center justify-center p-3 text-[#ffa600d1] rounded-xl bg-[#ffa60013] hidden c-664:block">
-                Premium
-              </div>
-            </div>
-        </div>
-
-        <SplitPage problemInfo={problemInfo} pageType={pageType} problemURL={problemURL} />
-    </div>
+    <ProblemLayout
+      problemInfo={problemInfo}
+      pageType={pageType}
+      problemURL={problemURL}
+    />
   )
 }
 
