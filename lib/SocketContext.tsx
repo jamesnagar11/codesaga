@@ -1,51 +1,57 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { ClientToServerEvents, ServerToClientEvents } from './types'
 
 type SocketContextType = {
   socket: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null>
+  isReady: boolean
 }
 
 const SocketContext = createContext<SocketContextType | null>(null)
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socket = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
+  // isReady triggers re-renders in consumers so they can register listeners AFTER connect
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    // Creating the socket only once
-    if (!socket.current) {
-      socket.current = io(`${process.env.NEXT_PUBLIC_SOCKET_BACKEND_URL}`, {
-        transports: ['websocket', 'polling'],
-        withCredentials: true,
-      })
+    // Guard: only create once (in case of StrictMode double-invoke)
+    if (socket.current) return
 
-      socket.current.on('connect', () => {
-        console.log('[SocketContext] Connected to socket server. ID:', socket.current?.id)
-      })
+    const sock = io(`${process.env.NEXT_PUBLIC_SOCKET_BACKEND_URL}`, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+    })
 
-      socket.current.on('disconnect', (reason) => {
-        console.log('[SocketContext] Socket disconnected:', reason)
-      })
+    socket.current = sock
 
-      socket.current.on('connect_error', (err) => {
-        console.error('[SocketContext] Connection error:', err.message)
-      })
-    }
+    sock.on('connect', () => {
+      console.log('[SocketContext] Connected. ID:', sock.id)
+      setIsReady(true)
+    })
 
-    
+    sock.on('disconnect', (reason) => {
+      console.log('[SocketContext] Disconnected:', reason)
+      setIsReady(false)
+    })
+
+    sock.on('connect_error', (err) => {
+      console.error('[SocketContext] Connection error:', err.message)
+    })
+
     return () => {
-      if (socket.current) {
-        console.log('[SocketContext] Provider unmounting — disconnecting socket.')
-        socket.current.disconnect()
-        socket.current = null
-      }
+      // Only runs when this Provider truly unmounts (user leaves /problems entirely)
+      console.log('[SocketContext] Provider unmounting — disconnecting socket.')
+      sock.disconnect()
+      socket.current = null
+      setIsReady(false)
     }
   }, [])
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={{ socket, isReady }}>
       {children}
     </SocketContext.Provider>
   )

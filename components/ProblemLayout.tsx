@@ -1,56 +1,32 @@
 'use client'
 
-import React, { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React from 'react'
 import NavUserIcon from '@/components/NavUserIcon'
 import ProblemNavIcon from '@/components/ProblemNavIcon'
 import RunButton from '@/components/RunButton'
 import SplitPage from '@/components/SplitPage'
 import Stopwatch from '@/components/Stopwatch'
-import { SocketProvider, useSocket } from '@/lib/SocketContext'
-import { useRunCallbackStore } from '@/lib/store'
 import { ProblemInfo } from '@/app/problems/[...slug]/page'
 
-// Inner component that has access to the socket context
-const ProblemLayoutInner = ({
+/**
+ * Renders the problem workspace UI: navbar + split pane.
+ * 
+ * Socket is provided by app/problems/layout.tsx (SocketProvider lives there).
+ * codeResponse listener is also in layout.tsx.
+ * RunButton uses useSocket() to get the socket ref for emitting.
+ */
+const ProblemLayout = ({
   problemInfo,
   pageType,
   problemURL,
 }: {
-  problemInfo: ProblemInfo
+  problemInfo: ProblemInfo | null
   pageType: string
   problemURL: string
 }) => {
-  const router = useRouter()
-  const { socket } = useSocket()
-  const updateResponseLoading = useRunCallbackStore((state) => state.updateResponseLoading)
-  const updateRunResponse = useRunCallbackStore((state) => state.updateRunResponse)
-
-  useEffect(() => {
-    const sock = socket.current
-    if (!sock) return
-
-    const handleCodeResponse = (obj: Parameters<typeof updateRunResponse>[0]) => {
-      if (!obj) return
-      console.log('[ProblemLayout] codeResponse received:', obj)
-      updateResponseLoading(false)
-      updateRunResponse(obj)
-      if (obj.runnerType === 'submit') {
-        router.push(`/problems/${problemURL}/submissions`)
-      } else {
-        router.push(`/problems/${problemURL}/testcases`)
-      }
-    }
-
-    // Register listener. Socket.io deduplicates listeners automatically if the same
-    // function reference is passed, but we use off/on to be safe across re-renders.
-    sock.off('codeResponse', handleCodeResponse)
-    sock.on('codeResponse', handleCodeResponse)
-
-    return () => {
-      sock.off('codeResponse', handleCodeResponse)
-    }
-  }, [socket, problemURL, router, updateResponseLoading, updateRunResponse])
+  if (!problemInfo) {
+    return <>Loading...</>
+  }
 
   return (
     <div>
@@ -73,31 +49,6 @@ const ProblemLayoutInner = ({
 
       <SplitPage problemInfo={problemInfo} pageType={pageType} problemURL={problemURL} />
     </div>
-  )
-}
-
-// Outer component that provides the socket context
-const ProblemLayout = ({
-  problemInfo,
-  pageType,
-  problemURL,
-}: {
-  problemInfo: ProblemInfo | null
-  pageType: string
-  problemURL: string
-}) => {
-  if (!problemInfo) {
-    return <>Loading...</>
-  }
-
-  return (
-    <SocketProvider>
-      <ProblemLayoutInner
-        problemInfo={problemInfo}
-        pageType={pageType}
-        problemURL={problemURL}
-      />
-    </SocketProvider>
   )
 }
 
