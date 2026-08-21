@@ -35,62 +35,73 @@ export const NEXT_AUTH_CONFIG = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
-    signIn: async({user, account}) => {
-      if(user && user.id && account && account?.providerAccountId) {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: {
-              id: user.id
-            }
-          })
-          if(!existingUser) {
-            await prisma.user.create({
-              data: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                image: user.image
-              }
-            })
-          }          
-        } catch (error) {
-          console.log('error1');
-          console.log(error);
-          return false
-        }
-        return true;
-      } 
-      else {
-        console.log('user.id not found');
+    // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin
+    signIn: async ({ user, account }) => {
+      const providerAccountId = account?.providerAccountId;
+      const userId = user?.id || providerAccountId;
+      const email = user?.email;
+
+      if (!userId && !email) {
+        console.log('signIn callback error: Neither user.id, account.providerAccountId nor user.email was provided.');
         return false;
       }
+
+      try {
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              ...(userId ? [{ id: userId }] : []),
+              ...(email ? [{ email: email }] : []),
+            ],
+          },
+        });
+
+        if (!existingUser) {
+          await prisma.user.create({
+            data: {
+              id: userId || String(Date.now()),
+              email: email || '',
+              name: user?.name || email?.split('@')[0] || 'User',
+              image: user?.image || '',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error in signIn callback during Prisma operation:', error);
+        return false;
+      }
+      return true;
     },
-    // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
-  session: async({ session, token }) => {
+    // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin
+    session: async ({ session, token }) => {
       if (session?.user && token?.sub) {
         try {
-          const prisma = globalPrismaClient;
-            const existingUser = await prisma.user.findUnique({
-              where: {
-                id: token.sub
-              },
-              select: {
-                name: true,
-                image: true
-              }
-            })
-            if(existingUser) {
-              session.user.name = existingUser.name;
-              session.user.image = existingUser.image;
-            }
+          const existingUser = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { id: token.sub },
+                ...(session.user.email ? [{ email: session.user.email }] : []),
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          });
+          if (existingUser) {
+            session.user.name = existingUser.name;
+            session.user.image = existingUser.image;
+            session.user.id = existingUser.id;
+          } else {
+            session.user.id = token.sub;
+          }
         } catch (error) {
-          console.log(error);
-          return null
+          console.error('Error in session callback:', error);
+          return null;
         }
-        session.user.id = token.sub
       }
-      return session
-  }
-},
-}
+      return session;
+    },
+  },
+};

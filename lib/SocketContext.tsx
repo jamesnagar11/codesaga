@@ -25,6 +25,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       withCredentials: true,
     })
 
+    console.log(`backend url:  ${process.env.NEXT_PUBLIC_SOCKET_BACKEND_URL}`); // intentional
+    
+
     socket.current = sock
 
     sock.on('connect', () => {
