@@ -21,7 +21,7 @@ export async function GET() {
         })
         const totalCount = easyCount + mediumCount + hardCount;
         return NextResponse.json({totalCount, easyCount, mediumCount, hardCount});
-    } catch (error) {
-        return NextResponse.json({message: error})
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

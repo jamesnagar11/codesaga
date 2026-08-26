@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
             }
         })
         return NextResponse.json({message: "Image updated successfully"})
-    } catch (error) {
-        return NextResponse.json({error: error})
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

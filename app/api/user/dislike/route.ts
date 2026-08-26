@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         }
         await prisma.dislike.create({data: {userId: userId, problemURL: problemURL}})
         return NextResponse.json({message: "Disliked"})
-    } catch (error) {
-        return NextResponse.json({error: error})
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

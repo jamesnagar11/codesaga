@@ -1,21 +1,8 @@
-import { globalPrismaClient } from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req: NextRequest ,context: { params: Promise<{ slug?: string[] }> }) {
-    const { slug } = await context.params;
-    if (!slug || slug.length === 0) {
-        return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
-    }
-        const userId = slug[0];
-    try {
-        const prisma = globalPrismaClient;
-        const user = await prisma.user.findUnique({
-            where: {
-                id: userId
-            }
-        })
-        return NextResponse.json(user)
-    } catch (error) {
-        return NextResponse.json(error)
-    }
+// This route was used for internal testing purposes only.
+// It has been disabled in production for security reasons.
+// It returned a full user object (including private fields) for any user ID without authentication.
+export async function GET() {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 }

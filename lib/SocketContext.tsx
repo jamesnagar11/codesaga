@@ -4,6 +4,19 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { io, Socket } from 'socket.io-client'
 import { ClientToServerEvents, ServerToClientEvents } from './types'
 
+// Typed declaration for runtime public env injected by layout.tsx (window.__ENV).
+// Only NEXT_PUBLIC_ values are ever injected — secrets are never included.
+declare global {
+  interface Window {
+    __ENV?: {
+      NEXT_PUBLIC_SOCKET_BACKEND_URL?: string
+      NEXT_PUBLIC_PRESET_NAME?: string
+      NEXT_PUBLIC_CLOUDINARY_NAME?: string
+      NEXT_PUBLIC_CLOUDINARY_BASE_URL?: string
+    }
+  }
+}
+
 type SocketContextType = {
   socket: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null>
   isReady: boolean
@@ -20,7 +33,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     // Guard: only create once (in case of StrictMode double-invoke)
     if (socket.current) return
 
-    const sock = io(`${process.env.NEXT_PUBLIC_SOCKET_BACKEND_URL}`, {
+    // Read from runtime window.__ENV first (set by layout.tsx server component at request time).
+    // This lets docker run -e NEXT_PUBLIC_SOCKET_BACKEND_URL=... work without a rebuild.
+    const socketUrl =
+      (typeof window !== 'undefined' && window.__ENV?.NEXT_PUBLIC_SOCKET_BACKEND_URL) ||
+      process.env.NEXT_PUBLIC_SOCKET_BACKEND_URL ||
+      ''
+
+    if (!socketUrl) {
+      console.warn('[SocketContext] Socket backend URL not configured (SOCKET_BACKEND_URL env var missing). Skipping WebSocket connection.')
+      return
+    }
+
+    const sock = io(socketUrl, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
     })
@@ -28,22 +53,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     socket.current = sock
 
     sock.on('connect', () => {
-      console.log('[SocketContext] Connected. ID:', sock.id)
       setIsReady(true)
     })
 
-    sock.on('disconnect', (reason) => {
-      console.log('[SocketContext] Disconnected:', reason)
+    sock.on('disconnect', () => {
       setIsReady(false)
     })
 
     sock.on('connect_error', (err) => {
-      console.error('[SocketContext] Connection error:', err.message)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[SocketContext] Connection error:', err.message)
+      }
     })
 
     return () => {
-      // Only runs when this Provider truly unmounts (user leaves /problems entirely)
-      console.log('[SocketContext] Provider unmounting — disconnecting socket.')
       sock.disconnect()
       socket.current = null
       setIsReady(false)

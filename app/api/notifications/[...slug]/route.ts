@@ -22,8 +22,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug?: 
             }
         })
         return NextResponse.json(userNotifications)
-    } catch (error) {
-        return NextResponse.json(error)
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
         
     }
 }

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug?: 
       }
     })
     return NextResponse.json(testcases)
-  } catch (error) {
-    return NextResponse.json({message: 'Invalid problem id', error: error})
-  }
+  } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+    }
 }

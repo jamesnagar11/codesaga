@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         hostname: 'lh3.googleusercontent.com'
       },
       {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com'
+      },
+      {
         protocol: 'http',
         hostname: 'res.cloudinary.com'
       },
@@ -16,7 +20,24 @@ const nextConfig: NextConfig = {
         hostname: 'assets.leetcode.com'
       },
     ],
-  }
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          // Prevent clickjacking
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          // Prevent MIME-type sniffing
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Don't send referrer to cross-origin requests
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Disable browser features not needed
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

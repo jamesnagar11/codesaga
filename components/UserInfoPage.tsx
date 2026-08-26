@@ -7,8 +7,7 @@ import SubmissionProgress from './SubmissionProgress'
 import YearlySubmissions from './YearlySubmissions'
 import { useUser } from '@/lib/store'
 import Image from 'next/image'
-import dotenv from 'dotenv'
-dotenv.config()
+
 
 export type ProfileData = {
     location: string;
@@ -43,12 +42,17 @@ const UserInfoPage = () => {
       return;
     }
     try {
+      const env = typeof window !== 'undefined' ? window.__ENV : undefined
+      const uploadPreset = env?.NEXT_PUBLIC_PRESET_NAME || process.env.NEXT_PUBLIC_PRESET_NAME || ''
+      const cloudName = env?.NEXT_PUBLIC_CLOUDINARY_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_NAME || ''
+      const cloudinaryUrl = env?.NEXT_PUBLIC_CLOUDINARY_BASE_URL || process.env.NEXT_PUBLIC_CLOUDINARY_BASE_URL || ''
+
       const data = new FormData()
       data.append('file', file)
-      data.append('upload_preset', `${process.env.NEXT_PUBLIC_PRESET_NAME}`)
-      data.append('cloud_name', `${process.env.NEXT_PUBLIC_CLOUDINARY_NAME}`)
+      data.append('upload_preset', uploadPreset)
+      data.append('cloud_name', cloudName)
       
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_CLOUDINARY_BASE_URL}`, data)
+      const res = await axios.post(cloudinaryUrl, data)
       
       if(res.data?.url && user) {
           const response = await axios.post('/api/user/upload/image', {imageURL: res.data.url, userId: user.id})
@@ -57,8 +61,8 @@ const UserInfoPage = () => {
               setUserDataImage(res.data.url)
           }
       }
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // Error suppressed in production to avoid leaking details to console
       alert("Error while uploading image, try again")
     }
   }
@@ -105,7 +109,7 @@ const UserInfoPage = () => {
                     setUser(res.data)
                 }
                 else {
-                    console.log(res.data);
+                    // Non-user response received — no action needed
                 }
             }
         }

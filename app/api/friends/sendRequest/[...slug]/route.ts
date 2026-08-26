@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug?:
        })
        return NextResponse.json(friendship)
         
-    } catch (error) {
-        return NextResponse.json({message:"Error", error});
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

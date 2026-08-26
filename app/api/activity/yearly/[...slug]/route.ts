@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug?: 
             yearlyActivity.push(monthlyActivity)
         }
         return NextResponse.json(yearlyActivity)
-    } catch (error) {
-        return NextResponse.json({message: error})
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

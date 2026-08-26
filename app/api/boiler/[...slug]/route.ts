@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug?: 
             }
         })
         return NextResponse.json(boilerPlates);
-    } catch (error) {
-        return NextResponse.json({error: error});
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

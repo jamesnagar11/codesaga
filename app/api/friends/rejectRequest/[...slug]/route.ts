@@ -43,9 +43,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug?:
             }
         }
         return NextResponse.json({message: 'Friendship rejected successfully!'})
-    } catch (error) {
-        return NextResponse.json({
-            error: error
-        })
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

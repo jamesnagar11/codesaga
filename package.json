@@ -7,7 +7,10 @@
     "build": "next build && prisma generate",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prisma:generate": "npx prisma generate",
+    "prisma:deploy": "npx prisma migrate deploy",
+    "prisma:push": "npx prisma db push"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.2",

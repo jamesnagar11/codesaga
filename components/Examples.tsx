@@ -1,5 +1,4 @@
 import { Example } from "@prisma/client"
-import Image from "next/image"
 
 const Examples = ({examples} : {examples: Example[]}) => {
     
@@ -12,7 +11,8 @@ const Examples = ({examples} : {examples: Example[]}) => {
                 </div>
                 {example.imgSrc && (
                     <div>
-                        <Image src={example.imgSrc} width={500} alt="Example Img" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={example.imgSrc} width={500} alt="Example Img" style={{ height: 'auto' }} />
                     </div>
                 )}
                 <div className="flex flex-col gap-1">

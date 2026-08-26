@@ -7,9 +7,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug?:
     if (!slug || slug.length === 0) {
         return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
     }
-        const body = await req.json()
+    const body = await req.json()
     const profile: ProfileData = body.profile;
-    console.log(body);
     try {
         const prisma = globalPrismaClient;
         const user = await prisma.user.update({
@@ -24,9 +23,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug?:
                 socialHandles: profile.socialLinks
             }
         })
-        console.log(user);
         return NextResponse.json(user)
-    } catch (error) {
-        return NextResponse.json(error)
+    } catch {
+        return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
     }
 }

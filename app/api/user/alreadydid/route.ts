@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         const alreadyLiked = liked ? true : false;
         const alreadyDisliked = disliked ? true : false;
         return NextResponse.json({alreadyLiked, alreadyDisliked})
-    } catch (error) {
-        return NextResponse.json({error: error})
+    } catch {
+        return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
     }
 }

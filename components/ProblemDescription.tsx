@@ -1,4 +1,4 @@
-import Image from "next/image"
+
 
 const ProblemDescription = ({description, imgSrc}: {description: string[], imgSrc: string | null}) => {
   return (
@@ -10,7 +10,8 @@ const ProblemDescription = ({description, imgSrc}: {description: string[], imgSr
         </div>
         {imgSrc && 
           <div>
-            <Image src={imgSrc} alt="Img" width={400} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imgSrc} alt="Img" width={400} style={{ height: 'auto' }} />
           </div>
         }
     </div>
