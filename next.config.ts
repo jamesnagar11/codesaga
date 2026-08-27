@@ -38,6 +38,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    const wsUrl = process.env.SOCKET_BACKEND_URL ?? 'http://localhost:9090';
+    return [
+      {
+        source: '/socket.io/:path*',
+        destination: `${wsUrl}/socket.io/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
