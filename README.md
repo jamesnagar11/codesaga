@@ -96,7 +96,7 @@
 
 <div align="center">
 
-![Hand-drawn architecture diagram](diagram/handmade.png)
+[![Hand-drawn architecture diagram](diagram/handmade.png)](https://raw.githubusercontent.com/jamesnagar11/codesaga/main/diagram/handmade.png)
 
 *Author's original architecture sketch — the blueprint behind the code*
 
