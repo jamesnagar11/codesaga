@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CodeSaga — Full System Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #0f1629;
+    --surface2: #151d35;
+    --border: rgba(99,102,241,0.18);
+    --accent1: #6366f1;
+    --accent2: #22d3ee;
+    --accent3: #f472b6;
+    --accent4: #4ade80;
+    --accent5: #fbbf24;
+    --accent6: #fb7185;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-bright: #f8fafc;
+    --glow1: rgba(99,102,241,0.35);
+    --glow2: rgba(34,211,238,0.3);
+    --glow3: rgba(244,114,182,0.3);
+    --glow4: rgba(74,222,128,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Top bar ─────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    background: rgba(10,14,26,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-title {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 15px; color: var(--text-bright);
+    letter-spacing: -0.3px;
+  }
+  .topbar-title .logo { font-size: 20px; }
+  .topbar-title .subtitle { font-size: 11px; font-weight: 400; color: var(--text-dim); display: block; }
+
+  .tab-bar {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 4px;
+  }
+  .tab {
+    padding: 6px 14px; border-radius: 7px; border: none;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; color: var(--text-dim);
+    background: transparent; transition: all .2s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .tab.active { background: var(--accent1); color: #fff; box-shadow: 0 0 16px var(--glow1); }
+
+  .controls {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05);
+    color: var(--text); font-size: 16px; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn:hover { background: rgba(99,102,241,0.2); border-color: var(--accent1); color: var(--accent1); }
+  .btn.reset { font-size: 13px; width: auto; padding: 0 12px; font-family: 'Inter', sans-serif; }
+  .zoom-display {
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim); min-width: 44px; text-align: center;
+  }
+
+  /* ── Canvas ───────────────────────────────────────────────── */
+  #canvas-wrap {
+    position: fixed; inset: 0; top: 57px;
+    overflow: hidden; cursor: grab;
+  }
+  #canvas-wrap:active { cursor: grabbing; }
+  #canvas {
+    position: absolute;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+
+  /* ── Legend ───────────────────────────────────────────────── */
+  .legend {
+    position: fixed; bottom: 20px; left: 20px; z-index: 50;
+    background: rgba(10,14,26,0.88);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .legend-title { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-line { width: 20px; height: 2px; flex-shrink: 0; border-radius: 2px; }
+
+  /* ── Tooltip ──────────────────────────────────────────────── */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: rgba(15,22,41,0.97); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12px; max-width: 260px; line-height: 1.5;
+    opacity: 0; transition: opacity .15s;
+    backdrop-filter: blur(12px);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip strong { color: var(--text-bright); display: block; margin-bottom: 4px; font-size: 13px; }
+
+  /* ── SVG node styles ─────────────────────────────────────── */
+  .node { cursor: pointer; }
+  .node:hover .node-body { filter: brightness(1.15) drop-shadow(0 0 12px currentColor); }
+
+  /* ── Mini-map ─────────────────────────────────────────────── */
+  .minimap {
+    position: fixed; bottom: 20px; right: 20px; z-index: 50;
+    width: 160px; height: 100px;
+    background: rgba(10,14,26,0.88);
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .minimap svg { width: 100%; height: 100%; }
+  .minimap-viewport {
+    fill: rgba(99,102,241,0.15);
+    stroke: var(--accent1);
+    stroke-width: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-title">
+    <span class="logo">⚡</span>
+    <div>
+      CodeSaga Architecture
+      <span class="subtitle">Interactive System Diagram · 5 Microservices</span>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="showView('full')">🌐 Full System</button>
+    <button class="tab" onclick="showView('client')">① Next.js Client</button>
+    <button class="tab" onclick="showView('ws')">② Socket Gateway</button>
+    <button class="tab" onclick="showView('engine')">③ Exec Engine</button>
+    <button class="tab" onclick="showView('bulk')">④ Bulk Executor</button>
+    <button class="tab" onclick="showView('janitor')">⑤ Cron Sweeper</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="zoom(-0.15)" title="Zoom Out">−</button>
+    <span class="zoom-display" id="zoom-display">100%</span>
+    <button class="btn" onclick="zoom(0.15)" title="Zoom In">+</button>
+    <button class="btn" onclick="panDir('left')" title="Pan Left">←</button>
+    <button class="btn" onclick="panDir('up')" title="Pan Up">↑</button>
+    <button class="btn" onclick="panDir('down')" title="Pan Down">↓</button>
+    <button class="btn" onclick="panDir('right')" title="Pan Right">→</button>
+    <button class="btn reset" onclick="resetView()">⌂ Reset</button>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-wrap">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-title">Legend</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> Next.js Client</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div> Socket Gateway</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f472b6"></div> Execution Engine</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Bulk Executor</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Cron Sweeper</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fb7185"></div> Redis</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#818cf8"></div> PostgreSQL</div>
+  <div class="legend-line" style="background:#6366f1;box-shadow:0 0 4px #6366f1"></div> WebSocket / HTTP
+  <div class="legend-line" style="background:#22d3ee;box-shadow:0 0 4px #22d3ee;margin-top:-6px"></div> Redis Stream
+  <div class="legend-line" style="background:#f472b6;box-shadow:0 0 4px #f472b6;margin-top:-6px;border-top:2px dashed #f472b6;border-bottom:none;height:0"></div> Pub/Sub
+</div>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- MINIMAP -->
+<div class="minimap"><svg id="minimap-svg"></svg></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let scale = 1, tx = 0, ty = 0;
+let dragging = false, lastX = 0, lastY = 0;
+let currentView = 'full';
+
+const canvasWrap = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('canvas');
+
+// ── Pan/Zoom ───────────────────────────────────────────────────
+function applyTransform() {
+  canvas.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+  document.getElementById('zoom-display').textContent = Math.round(scale * 100) + '%';
+  updateMinimap();
+}
+
+function zoom(delta, cx, cy) {
+  const rect = canvasWrap.getBoundingClientRect();
+  cx = cx ?? rect.width / 2;
+  cy = cy ?? rect.height / 2;
+  const newScale = Math.max(0.15, Math.min(3, scale + delta));
+  const ratio = newScale / scale;
+  tx = cx - ratio * (cx - tx);
+  ty = cy - ratio * (cy - ty);
+  scale = newScale;
+  applyTransform();
+}
+
+function panDir(dir) {
+  const step = 120;
+  if (dir === 'left')  tx += step;
+  if (dir === 'right') tx -= step;
+  if (dir === 'up')    ty += step;
+  if (dir === 'down')  ty -= step;
+  applyTransform();
+}
+
+function resetView() {
+  scale = 0.9; tx = 40; ty = 30;
+  applyTransform();
+}
+
+canvasWrap.addEventListener('mousedown', e => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  tx += e.clientX - lastX; ty += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  applyTransform();
+});
+window.addEventListener('mouseup', () => dragging = false);
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvasWrap.getBoundingClientRect();
+  zoom(-e.deltaY * 0.001, e.clientX - rect.left, e.clientY - rect.top);
+}, { passive: false });
+
+// ── Touch support ──────────────────────────────────────────────
+let lastDist = 0;
+canvasWrap.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) { dragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; }
+  if (e.touches.length === 2) { lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
+});
+canvasWrap.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && dragging) {
+    tx += e.touches[0].clientX - lastX; ty += e.touches[0].clientY - lastY;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; applyTransform();
+  }
+  if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    zoom((d - lastDist) * 0.008); lastDist = d;
+  }
+}, { passive: false });
+canvasWrap.addEventListener('touchend', () => dragging = false);
+
+// ── Tooltip ────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function showTip(e, html) {
+  tooltip.innerHTML = html; tooltip.classList.add('show');
+  moveTip(e);
+}
+function moveTip(e) {
+  let x = e.clientX + 16, y = e.clientY + 16;
+  if (x + 280 > window.innerWidth) x = e.clientX - 280;
+  if (y + 120 > window.innerHeight) y = e.clientY - 120;
+  tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+}
+function hideTip() { tooltip.classList.remove('show'); }
+window.addEventListener('mousemove', e => { if (tooltip.classList.contains('show')) moveTip(e); });
+
+// ── SVG helpers ────────────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(t, x, y, attrs = {}, parent) {
+  const e = el('text', { x, y, 'text-anchor': 'middle', 'dominant-baseline': 'middle', ...attrs }, parent);
+  e.textContent = t; return e;
+}
+
+// ── Defs (gradients, filters, markers) ───────────────────────
+function buildDefs(svg) {
+  const defs = el('defs', {}, svg);
+
+  // Grid pattern
+  const pat = el('pattern', { id:'grid', width:40, height:40, patternUnits:'userSpaceOnUse' }, defs);
+  el('path', { d:'M 40 0 L 0 0 0 40', fill:'none', stroke:'rgba(99,102,241,0.07)', 'stroke-width':'1' }, pat);
+
+  // Arrow markers
+  const colors = { indigo:'#6366f1', cyan:'#22d3ee', pink:'#f472b6', green:'#4ade80', amber:'#fbbf24', rose:'#fb7185', slate:'#94a3b8' };
+  for (const [name, color] of Object.entries(colors)) {
+    const m = el('marker', { id:`arr-${name}`, markerWidth:8, markerHeight:8, refX:6, refY:3, orient:'auto' }, defs);
+    el('path', { d:'M0,0 L0,6 L8,3 z', fill: color }, m);
+  }
+
+  // Glow filters
+  const glows = [
+    ['glow-indigo','#6366f1'], ['glow-cyan','#22d3ee'], ['glow-pink','#f472b6'],
+    ['glow-green','#4ade80'], ['glow-amber','#fbbf24'], ['glow-rose','#fb7185']
+  ];
+  for (const [id, color] of glows) {
+    const f = el('filter', { id, x:'-30%', y:'-30%', width:'160%', height:'160%' }, defs);
+    el('feGaussianBlur', { in:'SourceGraphic', stdDeviation:'4', result:'blur' }, f);
+    const flood = el('feFlood', { 'flood-color': color, 'flood-opacity':'0.5', result:'color' }, f);
+    el('feComposite', { in:'color', in2:'blur', operator:'in', result:'glow' }, f);
+    el('feMerge', {}, f).innerHTML = '<feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/>';
+  }
+
+  // Drop shadow
+  const ds = el('filter', { id:'shadow', x:'-20%', y:'-20%', width:'140%', height:'140%' }, defs);
+  el('feDropShadow', { dx:0, dy:4, stdDeviation:8, 'flood-color':'rgba(0,0,0,0.6)' }, ds);
+
+  // Gradients
+  const grads = [
+    ['grad-k8s', '#1a2040', '#0f1629'],
+    ['grad-redis', '#2a0a14', '#1a0710'],
+    ['grad-pg', '#0a1a2a', '#050f1a'],
+  ];
+  for (const [id, c1, c2] of grads) {
+    const g = el('linearGradient', { id, x1:0, y1:0, x2:1, y2:1 }, defs);
+    el('stop', { offset:0, 'stop-color': c1 }, g);
+    el('stop', { offset:1, 'stop-color': c2 }, g);
+  }
+}
+
+// ── Curved arrow ───────────────────────────────────────────────
+function arrow(g, x1, y1, x2, y2, color, dashed, label, tipInfo) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const cx1 = x1 + dx * 0.4, cy1 = y1;
+  const cx2 = x1 + dx * 0.6, cy2 = y2;
+  const d = `M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`;
+  const markerName = { '#6366f1':'indigo','#22d3ee':'cyan','#f472b6':'pink','#4ade80':'green','#fbbf24':'amber','#fb7185':'rose','#94a3b8':'slate' }[color] || 'slate';
+
+  const path = el('path', {
+    d, fill:'none', stroke: color,
+    'stroke-width': dashed ? '1.8' : '2.2',
+    'stroke-dasharray': dashed ? '6,4' : '',
+    'marker-end': `url(#arr-${markerName})`,
+    opacity: 0.85,
+  }, g);
+
+  // Glow copy
+  el('path', { d, fill:'none', stroke: color, 'stroke-width':'6', opacity:'0.12', 'stroke-dasharray': dashed ? '6,4' : '' }, g);
+
+  // Animated dash flow
+  if (!dashed) {
+    const anim = el('path', {
+      d, fill:'none', stroke:'#fff',
+      'stroke-width':'1.5', opacity:'0.4',
+      'stroke-dasharray':'8,40',
+    }, g);
+    const an = el('animate', {
+      attributeName:'stroke-dashoffset',
+      from:'48', to:'0',
+      dur: `${1.2 + Math.random() * 0.8}s`, repeatCount:'indefinite'
+    }, anim);
+  }
+
+  if (label) {
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - 10;
+    const bg = el('rect', { x: mx - label.length * 3.2, y: my - 8, width: label.length * 6.4, height: 16, rx: 4, fill:'rgba(10,14,26,0.85)', stroke: color, 'stroke-width':'0.5' }, g);
+    txt(label, mx, my, { fill: color, 'font-size':'9', 'font-family':'JetBrains Mono', 'font-weight':'500' }, g);
+  }
+}
+
+// ── Box node ──────────────────────────────────────────────────
+function box(g, x, y, w, h, rx, opts) {
+  const { bg = '#0f1629', stroke = '#6366f1', glow, label, sub, icon, tag, tipTitle, tipBody } = opts;
+  const grp = el('g', { class:'node', cursor:'pointer' }, g);
+
+  // Shadow
+  el('rect', { x, y, width:w, height:h, rx, fill:'rgba(0,0,0,0.5)', filter:'url(#shadow)' }, grp);
+  // Body
+  el('rect', { x, y, width:w, height:h, rx, fill: bg, stroke, 'stroke-width':'1.5', filter: glow ? `url(#${glow})` : '' }, grp);
+  // Inner shine
+  el('rect', { x: x+1, y: y+1, width: w-2, height: Math.min(h*0.35, 30), rx: rx-1, fill:'rgba(255,255,255,0.04)' }, grp);
+
+  if (icon) txt(icon, x+w/2, y + (sub?h*0.33:h/2) - 8, { 'font-size':'22', fill:'#fff' }, grp);
+  if (label) txt(label, x+w/2, y + (sub?h*0.55:h/2) + (icon?10:0), { fill:'#f8fafc', 'font-size':'12', 'font-weight':'600', 'font-family':'Inter' }, grp);
+  if (sub) txt(sub, x+w/2, y + h*0.76, { fill: stroke, 'font-size':'9', 'font-weight':'500', 'font-family':'JetBrains Mono' }, grp);
+  if (tag) {
+    el('rect', { x: x+w-1, y: y-1, width: tag.length*6.4+12, height:16, rx:8, fill: stroke }, grp);
+    txt(tag, x+w-1+(tag.length*6.4+12)/2, y+7, { fill:'#fff', 'font-size':'8', 'font-weight':'700', 'font-family':'Inter' }, grp);
+  }
+
+  if (tipTitle || tipBody) {
+    grp.addEventListener('mouseenter', e => showTip(e, `<strong>${tipTitle||label}</strong>${tipBody||''}`));
+    grp.addEventListener('mouseleave', hideTip);
+  }
+  return grp;
+}
+
+// ── Cluster border ─────────────────────────────────────────────
+function cluster(g, x, y, w, h, color, label) {
+  el('rect', { x, y, width:w, height:h, rx:18, fill:'rgba(0,0,0,0)', stroke: color, 'stroke-width':'1.5', 'stroke-dasharray':'8,5', opacity:'0.5' }, g);
+  const bg2 = el('rect', { x: x+12, y: y-9, width: label.length*7.2+16, height:18, rx:9, fill: color, opacity:'0.9' }, g);
+  txt(label, x+12+(label.length*7.2+16)/2, y, { fill:'#fff', 'font-size':'10', 'font-weight':'700', 'font-family':'Inter' }, g);
+}
+
+// ── Stream visual (queue) ─────────────────────────────────────
+function streamViz(g, x, y, w, h, color, jobs) {
+  el('rect', { x, y, width:w, height:h, rx:6, fill:'rgba(0,0,0,0.3)', stroke: color, 'stroke-width':'1', opacity:'0.6' }, g);
+  const cellW = (w - 8) / jobs;
+  for (let i = 0; i < jobs; i++) {
+    const cx = x + 4 + i * cellW, bright = i < 3 ? 0.9 : 0.35;
+    el('rect', { x: cx+1, y: y+3, width: cellW-2, height: h-6, rx:3, fill: color, opacity: bright }, g);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// ── FULL SYSTEM VIEW ───────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+function buildFull(svg) {
+  svg.setAttribute('width', 2200);
+  svg.setAttribute('height', 1300);
+
+  // Background grid
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  el('rect', { width:'100%', height:'100%', fill: 'var(--bg)', opacity:'0.3' }, svg);
+
+  // Title
+  txt('CodeSaga — Full Distributed System Architecture', 1100, 36, { fill:'#f8fafc', 'font-size':'20', 'font-weight':'800', 'font-family':'Inter', opacity:'0.9' }, svg);
+  txt('Event-Driven · Pub/Sub · Kubernetes · KEDA · GitOps · Redis Streams', 1100, 58, { fill:'#6366f1', 'font-size':'11', 'font-weight':'500', 'font-family':'JetBrains Mono' }, svg);
+
+  const g = el('g', {}, svg);
+
+  // ── K8s cluster border ──────────────────────────────────────
+  cluster(g, 280, 80, 1880, 1180, '#6366f1', '☸ Kubernetes Cluster');
+
+  // ── Users ──────────────────────────────────────────────────
+  const ug = el('g', {}, g);
+  for (let i = 0; i < 4; i++) {
+    box(ug, 40, 180 + i*90, 80, 55, 8, {
+      bg:'rgba(99,102,241,0.12)', stroke:'#6366f1',
+      icon: i===0?'👤':i===1?'👤':i===2?'👤':'👤',
+      label:'User', sub:`client-${i+1}`,
+      tipTitle:'End User', tipBody:'<br/>Connected via HTTPS + WebSocket<br/>Submits code, views results in real-time'
+    });
+  }
+  txt('10k–200k', 80, 560, { fill:'#6366f1', 'font-size':'9', 'font-weight':'600', 'font-family':'JetBrains Mono' }, ug);
+  txt('concurrent', 80, 572, { fill:'#6366f1', 'font-size':'9', 'font-family':'JetBrains Mono' }, ug);
+
+  // ── NGINX Ingress ───────────────────────────────────────────
+  box(g, 310, 120, 200, 80, 12, {
+    bg:'rgba(15,22,41,0.95)', stroke:'#94a3b8',
+    icon:'🔀', label:'NGINX Ingress', sub:'LoadBalancer',
+    tipTitle:'NGINX Ingress Controller',
+    tipBody:'<br/>Routes / → Next.js<br/>Routes /socket.io → Socket Servers<br/>Layer 7 load balancing'
+  });
+
+  // ── Prometheus / KEDA ──────────────────────────────────────
+  box(g, 310, 240, 140, 60, 10, {
+    bg:'rgba(251,191,36,0.08)', stroke:'#fbbf24',
+    icon:'📊', label:'Prometheus', sub:'metrics + scrape',
+    tipTitle:'Prometheus',
+    tipBody:'<br/>Scrapes /metrics from socket servers<br/>Metric: codesaga_ws_active_users<br/>Feeds KEDA for autoscaling'
+  });
+  box(g, 480, 240, 100, 60, 10, {
+    bg:'rgba(251,191,36,0.08)', stroke:'#fbbf24',
+    icon:'⚖️', label:'KEDA', sub:'autoscaler',
+    tipTitle:'KEDA',
+    tipBody:'<br/>Scale socket pods: lag = active_users / 10000<br/>Scale exec engine: Redis lag ≥ 50<br/>Scale bulk executor: Redis lag ≥ 200'
+  });
+  box(g, 310, 330, 270, 55, 10, {
+    bg:'rgba(251,191,36,0.06)', stroke:'#fbbf24',
+    icon:'🚀', label:'ArgoCD GitOps', sub:'auto-sync from staging-ops repo',
+    tipTitle:'ArgoCD',
+    tipBody:'<br/>Watches staging-ops GitHub repo<br/>Auto-applies any manifest diff<br/>Zero manual deployment steps'
+  });
+
+  // ── Next.js Client pods ────────────────────────────────────
+  cluster(g, 620, 90, 220, 160, '#6366f1', '① Next.js Client');
+  for (let i = 0; i < 2; i++) {
+    box(g, 630 + i*105, 115, 95, 120, 10, {
+      bg:'rgba(99,102,241,0.12)', stroke:'#6366f1',
+      icon:'▲', label:'Next.js', sub:`pod-${i+1}`,
+      tipTitle:'Next.js 15 (App Router)',
+      tipBody:'<br/>Auth: NextAuth (Google/GitHub)<br/>DB: Prisma + PostgreSQL<br/>Real-time: Socket.IO client<br/>Editor: CodeMirror 6<br/>State: Zustand'
+    });
+  }
+
+  // ── Socket Server pods ─────────────────────────────────────
+  cluster(g, 870, 90, 340, 330, '#22d3ee', '② Socket Gateway  ·  KEDA: 1 pod / 10k users');
+  for (let i = 0; i < 6; i++) {
+    const col = i % 3, row = Math.floor(i / 3);
+    box(g, 880 + col*108, 115 + row*145, 98, 130, 10, {
+      bg:'rgba(34,211,238,0.1)', stroke:'#22d3ee',
+      icon:'⚡', label:'Socket.IO', sub:`srv-${i+1}:9090`,
+      tipTitle:'codesaga-websocket-server',
+      tipBody:'<br/>Accepts Socket.IO connections<br/>Produces to Redis Stream: events:code<br/>Subscribes Pub/Sub: code:result:{uuid}<br/>Exposes /metrics for Prometheus<br/>Produces to events:db after result'
+    });
+  }
+
+  // ── Redis Layer ────────────────────────────────────────────
+  cluster(g, 1250, 90, 560, 370, '#fb7185', '🔴 Redis');
+
+  // Code Stream
+  box(g, 1265, 115, 240, 80, 10, {
+    bg:'rgba(251,113,133,0.1)', stroke:'#fb7185',
+    icon:'📨', label:'Stream: events:code', sub:'codesaga:events:code',
+    tipTitle:'Redis Stream — Code Jobs',
+    tipBody:'<br/>Consumer group: india-1<br/>Producer: socket servers<br/>Consumer: execution engine workers<br/>MAXLEN: ~10,000'
+  });
+  streamViz(g, 1270, 180, 230, 14, '#fb7185', 10);
+
+  // DB Stream
+  box(g, 1265, 225, 240, 80, 10, {
+    bg:'rgba(251,113,133,0.1)', stroke:'#fb7185',
+    icon:'💾', label:'Stream: events:db', sub:'codesaga:events:db',
+    tipTitle:'Redis Stream — DB Write Jobs',
+    tipBody:'<br/>Consumer group: india-1<br/>Producer: socket servers (after result)<br/>Consumer: bulk executor workers<br/>Janitor: XAUTOCLAIM recovery'
+  });
+  streamViz(g, 1270, 290, 230, 14, '#fb7185', 10);
+
+  // Pub/Sub
+  cluster(g, 1530, 90, 260, 360, '#f472b6', 'Pub/Sub Channels');
+  for (let i = 0; i < 6; i++) {
+    const col = i % 3, row = Math.floor(i / 3);
+    box(g, 1540 + col*82, 115 + row*155, 76, 130, 8, {
+      bg:'rgba(244,114,182,0.12)', stroke:'#f472b6',
+      icon:'📡', label:'Pub/Sub', sub:`srv-${i+1}`,
+      tipTitle:'Redis Pub/Sub',
+      tipBody:'<br/>Channel: code:result:{server-uuid}<br/>Only the originating socket server receives the result<br/>Key to horizontal scalability'
+    });
+  }
+
+  // ── Execution Engine ───────────────────────────────────────
+  cluster(g, 1260, 490, 540, 240, '#f472b6', '③ Execution Engine  ·  KEDA: lag ≥ 50');
+  for (let i = 0; i < 5; i++) {
+    box(g, 1270 + i*100, 515, 90, 200, 10, {
+      bg:'rgba(244,114,182,0.1)', stroke:'#f472b6',
+      icon:'⚙️', label:'Worker', sub:`eng-${i+1}`,
+      tipTitle:'codesaga-execution-engine',
+      tipBody:'<br/>1. xReadGroup from events:code<br/>2. Write code to /JavaFd /CppFd<br/>3. Compile (javac / g++)<br/>4. Run vs tester file (3.5s TLE)<br/>5. Publish result via Pub/Sub<br/>6. xAck + xDel<br/><br/>Sandboxed in Docker container'
+    });
+  }
+
+  // ── Bulk Executor ─────────────────────────────────────────
+  cluster(g, 620, 490, 600, 240, '#4ade80', '④ Bulk DB Executor  ·  KEDA: lag ≥ 200');
+  for (let i = 0; i < 5; i++) {
+    box(g, 630 + i*112, 515, 102, 200, 10, {
+      bg:'rgba(74,222,128,0.1)', stroke:'#4ade80',
+      icon:'📦', label:'Bulk Worker', sub:`blk-${i+1}`,
+      tipTitle:'codesaga-bulk-executor',
+      tipBody:'<br/>Batch: 100 jobs OR 20 seconds<br/>1 bulk READ from PostgreSQL<br/>Compute final state in memory<br/>1 bulk WRITE to PostgreSQL<br/>xAck + xDel all 100 message IDs<br/><br/>97% reduction in DB operations'
+    });
+  }
+
+  // ── Cron Sweeper ─────────────────────────────────────────
+  cluster(g, 310, 490, 280, 240, '#fbbf24', '⑤ Cron Sweeper');
+  box(g, 330, 520, 240, 185, 12, {
+    bg:'rgba(251,191,36,0.1)', stroke:'#fbbf24',
+    icon:'🧹', label:'Janitor', sub:'XAUTOCLAIM every 15s',
+    tipTitle:'codesaga-bulk-master',
+    tipBody:'<br/>Scans PEL for idle > 60s jobs<br/>retry_count < 3: re-enqueue<br/>retry_count ≥ 3: dead-letter<br/>Cleans stale PEL entries<br/>Prevents memory bloat<br/>At-least-once delivery'
+  });
+
+  // ── PostgreSQL ────────────────────────────────────────────
+  box(g, 870, 490, 340, 240, 16, {
+    bg:'rgba(99,102,241,0.1)', stroke:'#818cf8',
+    icon:'🐘', label:'PostgreSQL', sub:'Aiven Cloud · PrismaORM',
+    tipTitle:'PostgreSQL Database',
+    tipBody:'<br/>Stores: users, problems, submissions<br/>Streaks, friends, rankings<br/>Bulk executor writes with single SQL<br/>Prisma ORM + @prisma/adapter-pg'
+  });
+
+  // ── ARROWS ────────────────────────────────────────────────
+  // Users → Ingress
+  for (let i = 0; i < 4; i++) arrow(g, 120, 207+i*90, 310, 160, '#6366f1', false, i===1?'HTTPS/WS':null);
+  // Ingress → Next.js
+  arrow(g, 510, 160, 630, 175, '#6366f1', false, '/');
+  // Ingress → Socket servers
+  arrow(g, 510, 175, 870, 280, '#22d3ee', false, '/socket.io');
+  // Next.js → Postgres (CRUD)
+  arrow(g, 725, 235, 1040, 610, '#818cf8', true, 'Prisma CRUD');
+  // Socket → Redis Stream code
+  arrow(g, 1210, 200, 1265, 155, '#fb7185', false, 'XADD');
+  // Redis Stream code → Exec engine
+  arrow(g, 1385, 195, 1510, 515, '#f472b6', false, 'XREADGROUP');
+  // Exec engine → Pub/Sub
+  arrow(g, 1560, 620, 1660, 380, '#f472b6', true, 'PUBLISH');
+  // Pub/Sub → Socket servers
+  arrow(g, 1530, 250, 1210, 250, '#f472b6', true, 'SUBSCRIBE');
+  // Socket → emit to user
+  arrow(g, 870, 250, 620, 207, '#22d3ee', true, 'codeResponse');
+  // Socket → Redis Stream DB
+  arrow(g, 1100, 340, 1265, 280, '#fb7185', false, 'XADD');
+  // Redis Stream DB → Bulk executor
+  arrow(g, 1300, 305, 1070, 570, '#4ade80', false, 'XREADGROUP');
+  // Bulk executor → Postgres
+  arrow(g, 1040, 640, 1040, 610, '#818cf8', false, 'Bulk SQL');
+  // Janitor ↔ Redis Stream DB
+  arrow(g, 590, 620, 1265, 290, '#fbbf24', true, 'XAUTOCLAIM');
+  // Prometheus → KEDA
+  arrow(g, 450, 270, 480, 270, '#fbbf24', true);
+  // KEDA → Socket
+  arrow(g, 535, 260, 870, 200, '#fbbf24', true, 'scale pods');
+  // KEDA → Exec engine
+  arrow(g, 550, 285, 1265, 580, '#fbbf24', true, 'scale pods');
+}
+
+// ════════════════════════════════════════════════════════════════
+// ── MODULE-SPECIFIC VIEWS ─────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+
+function buildClient(svg) {
+  svg.setAttribute('width', 1600); svg.setAttribute('height', 900);
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  const g = el('g', {}, svg);
+  cluster(g, 40, 60, 1520, 800, '#6366f1', '☸ Kubernetes Cluster');
+
+  txt('① CodeSaga — Next.js Client (Module 1/5)', 800, 36, { fill:'#f8fafc','font-size':'17','font-weight':'800','font-family':'Inter' }, svg);
+  txt('Next.js 15 · NextAuth · Zustand · Prisma · CodeMirror · TailwindCSS', 800, 54, { fill:'#6366f1','font-size':'10','font-family':'JetBrains Mono' }, svg);
+
+  // User
+  box(g, 70, 100, 90, 120, 10, { bg:'rgba(99,102,241,0.12)',stroke:'#6366f1',icon:'👤',label:'User',sub:'browser',tipTitle:'End User',tipBody:'<br/>Opens codesaga.com<br/>Writes code in CodeMirror editor<br/>Submits via WebSocket' });
+
+  // NGINX
+  box(g, 230, 100, 160, 70, 10, { bg:'rgba(148,163,184,0.1)',stroke:'#94a3b8',icon:'🔀',label:'NGINX Ingress',sub:'LoadBalancer',tipTitle:'NGINX Ingress',tipBody:'<br/>Routes / to Next.js pods<br/>Routes /socket.io to codesaga-ws' });
+
+  // Next.js pods
+  cluster(g, 450, 80, 480, 680, '#6366f1', '① Next.js Pods (replicas: 2+)');
+  const features = ['🔐 Auth\n(NextAuth)', '📋 Problems\nBrowser', '⚡ Realtime\nJudge', '📊 Dashboard\n& Streaks', '👥 Friends\n& Rankings', '🖼️ Profile\n& Avatar'];
+  for (let i = 0; i < 6; i++) {
+    const col = i%2, row = Math.floor(i/2);
+    box(g, 460 + col*225, 110 + row*210, 210, 185, 12, {
+      bg:'rgba(99,102,241,0.1)',stroke:'#6366f1',
+      label: features[i].split('\n')[0], sub: features[i].split('\n')[1]||'',
+      tipTitle:'Next.js Feature', tipBody:`<br/>${features[i].replace('\n',' — ')}`
+    });
+  }
+
+  // Postgres
+  box(g, 1000, 120, 180, 180, 14, { bg:'rgba(99,102,241,0.1)',stroke:'#818cf8',icon:'🐘',label:'PostgreSQL',sub:'Prisma ORM',tipTitle:'PostgreSQL',tipBody:'<br/>Users, Problems, Submissions<br/>Streaks, Friends, Rankings<br/>Server Actions + API routes' });
+  // Socket client
+  box(g, 1000, 350, 180, 120, 14, { bg:'rgba(34,211,238,0.1)',stroke:'#22d3ee',icon:'⚡',label:'Socket.IO',sub:'Client → codesaga-ws',tipTitle:'Socket.IO Client',tipBody:'<br/>Connects to codesaga-ws:9090<br/>Emits: codeRequestQueue<br/>Listens: codeResponse' });
+  // Cloudinary
+  box(g, 1000, 520, 180, 100, 14, { bg:'rgba(251,191,36,0.1)',stroke:'#fbbf24',icon:'🌤️',label:'Cloudinary',sub:'avatar uploads',tipTitle:'Cloudinary',tipBody:'<br/>Profile image storage<br/>Direct upload from browser' });
+
+  // CI/CD
+  box(g, 1240, 120, 270, 350, 14, { bg:'rgba(74,222,128,0.1)',stroke:'#4ade80',icon:'🚀',label:'GitHub Actions CI/CD',sub:'push → build → deploy',tipTitle:'GitOps Pipeline',tipBody:'<br/>1. Push to main<br/>2. Build Docker image<br/>3. Push to DockerHub<br/>4. Patch staging-ops manifest<br/>5. ArgoCD auto-syncs to k8s' });
+
+  // Arrows
+  arrow(g, 160, 140, 230, 135, '#6366f1', false, 'HTTPS');
+  arrow(g, 390, 135, 450, 200, '#6366f1', false, '/');
+  arrow(g, 930, 200, 1000, 210, '#818cf8', true, 'Prisma');
+  arrow(g, 930, 410, 1000, 410, '#22d3ee', true, 'WS');
+}
+
+function buildWS(svg) {
+  svg.setAttribute('width', 1600); svg.setAttribute('height', 900);
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  const g = el('g', {}, svg);
+  cluster(g, 40, 60, 1520, 800, '#22d3ee', '☸ Kubernetes Cluster');
+
+  txt('② codesaga-websocket-server — Socket Gateway (Module 2/5)', 800, 36, { fill:'#f8fafc','font-size':'16','font-weight':'800','font-family':'Inter' }, svg);
+  txt('Socket.IO · Redis Streams Producer · Pub/Sub Subscriber · Prometheus /metrics · KEDA Autoscaled', 800, 54, { fill:'#22d3ee','font-size':'10','font-family':'JetBrains Mono' }, svg);
+
+  // Client
+  box(g, 60, 250, 110, 120, 10, { bg:'rgba(99,102,241,0.12)',stroke:'#6366f1',icon:'▲',label:'Next.js',sub:'client',tipTitle:'Next.js Client',tipBody:'<br/>Socket.IO client connects<br/>Emits: codeRequestQueue<br/>Receives: codeResponse' });
+
+  // Socket pods
+  cluster(g, 240, 80, 460, 760, '#22d3ee', '② Socket Server Pods  ·  KEDA: 1 pod per 10,000 users');
+  const events = [
+    ['codeRequestQueue','receive'],['Redis Stream PRODUCE','events:code'],
+    ['Redis Pub/Sub SUB','code:result:{uuid}'],['codeResponse emit','→ socketId'],
+    ['events:db PRODUCE','DB write job'],['GET /metrics','Prometheus gauge'],
+  ];
+  for (let i = 0; i < 6; i++) {
+    const col = i%2, row = Math.floor(i/2);
+    box(g, 255 + col*220, 110 + row*220, 205, 195, 12, {
+      bg:'rgba(34,211,238,0.08)', stroke:'#22d3ee',
+      label: events[i][0], sub: events[i][1],
+      tipTitle:'Socket Server Step', tipBody:`<br/><b>${events[i][0]}</b><br/>${events[i][1]}`
+    });
+  }
+
+  // Prometheus
+  box(g, 760, 120, 160, 100, 12, { bg:'rgba(251,191,36,0.1)',stroke:'#fbbf24',icon:'📊',label:'Prometheus',sub:'scrapes /metrics',tipTitle:'Prometheus',tipBody:'<br/>Scrapes codesaga_ws_active_users gauge<br/>KEDA reads this metric to scale pods' });
+
+  // Redis streams
+  box(g, 760, 280, 220, 100, 12, { bg:'rgba(251,113,133,0.1)',stroke:'#fb7185',icon:'📨',label:'events:code stream',sub:'→ Execution Engine',tipTitle:'Redis Stream: events:code',tipBody:'<br/>Socket server XADDs on each submission<br/>Execution engine workers XREADGROUP' });
+  streamViz(g, 762, 362, 216, 14, '#fb7185', 8);
+
+  box(g, 760, 440, 220, 100, 12, { bg:'rgba(251,113,133,0.1)',stroke:'#fb7185',icon:'💾',label:'events:db stream',sub:'→ Bulk Executor',tipTitle:'Redis Stream: events:db',tipBody:'<br/>Socket server produces after result<br/>Bulk executor workers XREADGROUP' });
+  streamViz(g, 762, 522, 216, 14, '#fb7185', 8);
+
+  // Pub/Sub
+  box(g, 760, 590, 220, 120, 12, { bg:'rgba(244,114,182,0.1)',stroke:'#f472b6',icon:'📡',label:'Pub/Sub Channel',sub:'code:result:{server-uuid}',tipTitle:'Redis Pub/Sub',tipBody:'<br/>Each socket server has unique channel ID<br/>Exec engine publishes to specific channel<br/>Only correct server delivers result' });
+
+  // Arrows
+  arrow(g, 170, 310, 255, 310, '#22d3ee', false, 'socket.io');
+  arrow(g, 700, 200, 760, 200, '#fbbf24', false, '/metrics');
+  arrow(g, 700, 330, 760, 330, '#fb7185', false, 'XADD');
+  arrow(g, 700, 490, 760, 490, '#fb7185', false, 'XADD');
+  arrow(g, 980, 640, 760, 650, '#f472b6', true, 'SUBSCRIBE');
+  arrow(g, 700, 460, 170, 350, '#22d3ee', true, 'emit codeResponse');
+}
+
+function buildEngine(svg) {
+  svg.setAttribute('width', 1600); svg.setAttribute('height', 900);
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  const g = el('g', {}, svg);
+  cluster(g, 40, 60, 1520, 800, '#f472b6', '☸ Kubernetes Cluster');
+
+  txt('③ codesaga-execution-engine — Sandboxed Code Runner (Module 3/5)', 800, 36, { fill:'#f8fafc','font-size':'16','font-weight':'800','font-family':'Inter' }, svg);
+  txt('TypeScript (Bun) · Java 21 · G++ · Python 3 · Docker Sandboxed · KEDA lag ≥ 50', 800, 54, { fill:'#f472b6','font-size':'10','font-family':'JetBrains Mono' }, svg);
+
+  // Redis Stream input
+  box(g, 60, 250, 200, 90, 12, { bg:'rgba(251,113,133,0.1)',stroke:'#fb7185',icon:'📨',label:'events:code stream',sub:'from socket servers',tipTitle:'Redis Stream Input',tipBody:'<br/>codesaga:events:code<br/>Consumer group: india-1<br/>xReadGroup COUNT:2 BLOCK:3s' });
+  streamViz(g, 62, 322, 196, 14, '#fb7185', 8);
+
+  // Pipeline steps
+  cluster(g, 330, 80, 900, 760, '#f472b6', '③ Execution Engine Workers (Docker Sandboxed)  ·  KEDA: lag ≥ 50');
+  const steps = [
+    ['1️⃣','Parse Payload','language, code,\nproblemTitle, socketId'],
+    ['2️⃣','Write to /Fd Dir','JavaFd/ CppFd/\nPythonFd/'],
+    ['3️⃣','Compile','javac / g++ / skip\n→ CE on error'],
+    ['4️⃣','Run vs Tester','3.5s timeout\n→ TLE if exceeded'],
+    ['5️⃣','Verdict','Accepted / WA /\nTLE / CE / RE'],
+    ['6️⃣','Publish + xAck','Pub/Sub PUBLISH\nxAck + xDel'],
+  ];
+  for (let i = 0; i < 6; i++) {
+    const col = i%3, row = Math.floor(i/3);
+    box(g, 345 + col*290, 110 + row*360, 270, 320, 14, {
+      bg:'rgba(244,114,182,0.08)', stroke:'#f472b6',
+      icon: steps[i][0], label: steps[i][1], sub: steps[i][2].replace('\n',' · '),
+      tipTitle:`Step ${i+1}: ${steps[i][1]}`, tipBody:`<br/>${steps[i][2].replace('\n','<br/>')}`
+    });
+  }
+
+  // Pub/Sub output
+  box(g, 1300, 250, 200, 90, 12, { bg:'rgba(244,114,182,0.1)',stroke:'#f472b6',icon:'📡',label:'Pub/Sub PUBLISH',sub:'→ socket server',tipTitle:'Redis Pub/Sub',tipBody:'<br/>Publishes to code:result:{subscriber_id}<br/>Only the originating socket server receives it' });
+
+  // Arrows
+  arrow(g, 260, 295, 345, 295, '#f472b6', false, 'XREADGROUP');
+  for (let i = 0; i < 5; i++) arrow(g, 615 + i%3*290, 430, 345 + (i+1)%3*290 + 100, 430, '#f472b6', false);
+  arrow(g, 1230, 470, 1300, 295, '#f472b6', false, 'PUBLISH');
+}
+
+function buildBulk(svg) {
+  svg.setAttribute('width', 1600); svg.setAttribute('height', 900);
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  const g = el('g', {}, svg);
+  cluster(g, 40, 60, 1520, 800, '#4ade80', '☸ Kubernetes Cluster');
+
+  txt('④ codesaga-bulk-executor — Bulk DB Write Worker (Module 4/5)', 800, 36, { fill:'#f8fafc','font-size':'16','font-weight':'800','font-family':'Inter' }, svg);
+  txt('TypeScript (Bun) · Prisma 7 · PostgreSQL · Redis Streams · KEDA lag ≥ 200  ·  97% DB op reduction', 800, 54, { fill:'#4ade80','font-size':'10','font-family':'JetBrains Mono' }, svg);
+
+  // Redis input
+  box(g, 60, 220, 200, 90, 12, { bg:'rgba(251,113,133,0.1)',stroke:'#fb7185',icon:'💾',label:'events:db stream',sub:'from socket servers',tipTitle:'Redis Stream: events:db',tipBody:'<br/>xReadGroup blocking<br/>Consumer group: india-1<br/>Batch up to 100 msgs or 20s' });
+  streamViz(g, 62, 292, 196, 14, '#fb7185', 10);
+
+  // Batch algorithm
+  cluster(g, 330, 80, 920, 760, '#4ade80', '④ Bulk Executor Workers  ·  KEDA: lag ≥ 200');
+  const algo = [
+    ['⏱️','Collect Batch','100 jobs OR 20s timer\nwhichever first'],
+    ['📖','Bulk READ','SELECT all user rows\n1 query for 100 jobs'],
+    ['🧠','Compute State','Streaks, solved count\nall in memory'],
+    ['✍️','Bulk WRITE','1 SQL statement\nfor all 100 rows'],
+    ['✅','xAck + xDel','Acknowledge all 100\nmessage IDs'],
+    ['📈','97% Less DB Ops','20k submissions =\n20 reads + 20 writes'],
+  ];
+  for (let i = 0; i < 6; i++) {
+    const col = i%3, row = Math.floor(i/3);
+    box(g, 345 + col*295, 110 + row*360, 275, 320, 14, {
+      bg:'rgba(74,222,128,0.08)', stroke:'#4ade80',
+      icon: algo[i][0], label: algo[i][1], sub: algo[i][2].replace('\n',' · '),
+      tipTitle:`Step: ${algo[i][1]}`, tipBody:`<br/>${algo[i][2].replace('\n','<br/>')}`
+    });
+  }
+
+  // Postgres
+  box(g, 1310, 200, 200, 200, 14, { bg:'rgba(99,102,241,0.1)',stroke:'#818cf8',icon:'🐘',label:'PostgreSQL',sub:'1 bulk write per batch',tipTitle:'PostgreSQL',tipBody:'<br/>1 READ: SELECT WHERE userId IN (...)<br/>1 WRITE: UPDATE ... WHERE userId IN (...)<br/>Prisma 7 + @prisma/adapter-pg' });
+
+  arrow(g, 260, 265, 345, 265, '#4ade80', false, 'XREADGROUP');
+  arrow(g, 1265, 265, 1310, 300, '#818cf8', false, 'Bulk SQL');
+}
+
+function buildJanitor(svg) {
+  svg.setAttribute('width', 1600); svg.setAttribute('height', 900);
+  el('rect', { width:'100%', height:'100%', fill:'url(#grid)' }, svg);
+  const g = el('g', {}, svg);
+  cluster(g, 40, 60, 1520, 800, '#fbbf24', '☸ Kubernetes Cluster');
+
+  txt('⑤ codesaga-bulk-master — Redis Cron Sweeper (Module 5/5)', 800, 36, { fill:'#f8fafc','font-size':'16','font-weight':'800','font-family':'Inter' }, svg);
+  txt('XAUTOCLAIM · PEL Recovery · Dead-letter · At-least-once Delivery · Memory Hygiene', 800, 54, { fill:'#fbbf24','font-size':'10','font-family':'JetBrains Mono' }, svg);
+
+  // Redis stream with PEL
+  box(g, 60, 200, 220, 150, 12, { bg:'rgba(251,113,133,0.1)',stroke:'#fb7185',icon:'💾',label:'events:db stream',sub:'PEL — Pending Entries List',tipTitle:'Redis Stream PEL',tipBody:'<br/>Pending = job consumed but not ack\'d<br/>Happens when worker pod crashes<br/>Janitor recovers these jobs' });
+  streamViz(g, 62, 330, 216, 14, '#fb7185', 10);
+
+  // Flow steps
+  cluster(g, 360, 80, 920, 760, '#fbbf24', '⑤ Janitor Sweep — Every 15 Seconds');
+  const steps = [
+    ['🔍','XAUTOCLAIM','idle > 60,000ms\nbatch: 50 msgs'],
+    ['🔢','Check retry_count','Field stored\nin message data'],
+    ['♻️','Re-enqueue','retry_count + 1\nXADD back to stream'],
+    ['🗑️','Dead-letter','retry_count ≥ 3\nxAck + xDel + log'],
+    ['🧹','Clean PEL','deletedMessages[]\nxAck stale entries'],
+    ['😴','Sleep / Loop','100ms if more pages\n15s if done'],
+  ];
+  for (let i = 0; i < 6; i++) {
+    const col = i%3, row = Math.floor(i/3);
+    box(g, 375 + col*295, 110 + row*360, 275, 320, 14, {
+      bg:'rgba(251,191,36,0.08)', stroke:'#fbbf24',
+      icon: steps[i][0], label: steps[i][1], sub: steps[i][2].replace('\n',' · '),
+      tipTitle:`Step: ${steps[i][1]}`, tipBody:`<br/>${steps[i][2].replace('\n','<br/>')}`
+    });
+  }
+
+  // Bulk executor (recovers to)
+  box(g, 1350, 200, 180, 150, 12, { bg:'rgba(74,222,128,0.1)',stroke:'#4ade80',icon:'📦',label:'Bulk Executor',sub:'picks up re-enqueued jobs',tipTitle:'Bulk Executor Workers',tipBody:'<br/>After janitor re-enqueues a job<br/>Bulk executor picks it up normally<br/>At-least-once delivery guaranteed' });
+
+  arrow(g, 280, 275, 375, 275, '#fbbf24', false, 'XAUTOCLAIM');
+  arrow(g, 1295, 275, 1350, 275, '#4ade80', true, 're-enqueue');
+}
+
+// ── View switcher ──────────────────────────────────────────────
+const builders = { full: buildFull, client: buildClient, ws: buildWS, engine: buildEngine, bulk: buildBulk, janitor: buildJanitor };
+const defaultTransforms = {
+  full: { s:0.55, x:20, y:20 },
+  client: { s:0.75, x:30, y:30 },
+  ws: { s:0.75, x:30, y:30 },
+  engine: { s:0.75, x:30, y:30 },
+  bulk: { s:0.75, x:30, y:30 },
+  janitor: { s:0.75, x:30, y:30 },
+};
+
+function showView(name) {
+  currentView = name;
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['full','client','ws','engine','bulk','janitor'][i] === name);
+  });
+  // Clear
+  while (canvas.firstChild) canvas.removeChild(canvas.firstChild);
+  buildDefs(canvas);
+  builders[name](canvas);
+  const t = defaultTransforms[name];
+  scale = t.s; tx = t.x; ty = t.y;
+  applyTransform();
+  updateMinimap();
+}
+
+// ── Minimap ────────────────────────────────────────────────────
+function updateMinimap() {
+  const mm = document.getElementById('minimap-svg');
+  while (mm.firstChild) mm.removeChild(mm.firstChild);
+  const w = parseFloat(canvas.getAttribute('width') || 2200);
+  const h = parseFloat(canvas.getAttribute('height') || 1300);
+  const mmW = 160, mmH = 100;
+  const rs = Math.min(mmW / w, mmH / h);
+  el('rect', { width: mmW, height: mmH, fill:'rgba(10,14,26,0.5)' }, mm);
+  el('rect', { x:0,y:0, width: w*rs, height: h*rs, fill:'rgba(99,102,241,0.06)', stroke:'rgba(99,102,241,0.2)', 'stroke-width':'0.5' }, mm);
+  const vx = (-tx / scale) * rs, vy = (-ty / scale) * rs;
+  const vw = (canvasWrap.clientWidth / scale) * rs, vh = (canvasWrap.clientHeight / scale) * rs;
+  el('rect', { x: Math.max(0,vx), y: Math.max(0,vy), width: Math.min(vw, mmW), height: Math.min(vh, mmH), fill:'rgba(99,102,241,0.15)', stroke:'#6366f1', 'stroke-width':'1.5' }, mm);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+showView('full');
+</script>
+</body>
+</html>

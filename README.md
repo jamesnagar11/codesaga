@@ -23,53 +23,84 @@
 | Module | Repo | Role | Docker Image |
 |--------|------|------|--------------|
 | **① You are here** | [`codesaga`](https://github.com/jamesnagar11/codesaga) | Next.js Client — UI, Auth, Problem Pages | `jamesnagar/codesaga-client` |
-| ② Socket Gateway | [`codesaga-ws`](https://github.com/jamesnagar11/codesaga-ws) | WebSocket server, Redis Streams producer, Pub/Sub subscriber | `jamesnagar/codesaga-ws` |
-| ③ Execution Engine | [`codesaga-engine`](https://github.com/jamesnagar11/codesaga-engine) | Sandboxed code runner (Java, C++, Python) | `jamesnagar/codesaga-engine` |
-| ④ Bulk DB Executor | [`bulk-executor`](https://github.com/jamesnagar11/bulk-executor) | Batches up to 100 DB writes in a single SQL statement | `jamesnagar/codesaga-bulk` |
-| ⑤ Cron Sweeper | [`bulk-executor-janitor`](https://github.com/jamesnagar11/bulk-executor-janitor) | Auto-claims stale jobs, reconciles Redis memory | `jamesnagar/codesaga-cron` |
+| ② Socket Gateway | [`codesaga-websocket-server`](https://github.com/jamesnagar11/codesaga-websocket-server) | WebSocket server, Redis Streams producer, Pub/Sub subscriber | `jamesnagar/codesaga-ws` |
+| ③ Execution Engine | [`codesaga-execution-engine`](https://github.com/jamesnagar11/codesaga-execution-engine) | Sandboxed code runner (Java, C++, Python) | `jamesnagar/codesaga-engine` |
+| ④ Bulk DB Executor | [`codesaga-bulk-executor`](https://github.com/jamesnagar11/codesaga-bulk-executor) | Batches up to 100 DB writes in a single SQL statement | `jamesnagar/codesaga-bulk` |
+| ⑤ Cron Sweeper | [`codesaga-bulk-master`](https://github.com/jamesnagar11/codesaga-bulk-master) | Auto-claims stale jobs, reconciles Redis memory | `jamesnagar/codesaga-cron` |
 | ⚙️ GitOps Config | [`staging-ops`](https://github.com/jamesnagar11/staging-ops) | Kubernetes manifests managed by ArgoCD | — |
 
 ---
 
-## 🏗️ Full System Architecture
+## 🏗️ Full System Architecture — Interactive Diagram
+
+> **👉 [Open Full Interactive Diagram →](https://jamesnagar11.github.io/codesaga/diagram/)**
+>
+> *Pan, zoom, shift arrows, hover nodes for details — all 5 modules in one view*
+
+<!-- INTERACTIVE DIAGRAM EMBED (GitHub Pages) -->
+<div align="center">
+
+[![Architecture Diagram](https://img.shields.io/badge/🔍_View_Interactive_Diagram-6366f1?style=for-the-badge&logoColor=white)](https://jamesnagar11.github.io/codesaga/diagram/)
+
+</div>
+
+---
+
+### 📐 Architectural Overview
 
 ```
-                           ┌─────────────────────────────────────────────────────────────────────┐
-                           │                     Kubernetes Cluster (k8s)                         │
-                           │                                                                       │
- ┌──────────┐   HTTPS/WS   │  ┌─────────────────────────────────────────────────────────────┐    │
- │  Users   │─────────────►│  │           NGINX Ingress + Load Balancer                     │    │
- └──────────┘              │  └──────┬───────────────────────────────┬────────────────────────┘    │
-                           │         │ /                             │ /socket.io                  │
-                           │  ┌──────▼──────┐             ┌─────────▼──────────────────┐         │
-                           │  │  CodeSaga   │◄────────────►│  Socket Servers (codesaga-ws)│        │
-                           │  │ (Next.js)   │  REST/Auth  │  KEDA: 1 pod / 10k users   │        │
-                           │  └─────────────┘             └────────┬────────────────────┘        │
-                           │                                        │                             │
-                           │          ┌─────────────────────────────┼────────────────────┐        │
-                           │          │          Redis               │                    │        │
-                           │          │  ┌──────────────────┐       │         ┌──────────┴──┐    │
-                           │          │  │ Stream: events:  │◄──────┘(produce)│             │    │
-                           │          │  │   code           │                 │  Pub/Sub    │    │
-                           │          │  └────────┬─────────┘  (publish)     │  Channels   │    │
-                           │          │           │(consume)   ◄──────────────┤             │    │
-                           │          │  ┌────────▼─────────┐                └─────────────┘    │
-                           │          │  │ Stream: events:db │                      │             │
-                           │          │  └────────┬─────────┘          (subscribe) │             │
-                           │          └───────────┼───────────────────────────────-┘             │
-                           │                      │                                               │
-                           │    ┌─────────────────▼──────┐    ┌───────────────────────┐          │
-                           │    │  Execution Engine       │    │  Bulk Executor Workers│          │
-                           │    │  Workers (codesaga-eng) │    │  (bulk-executor)      │          │
-                           │    │  KEDA lag ≥ 50          │    │  KEDA lag ≥ 200       │          │
-                           │    │  Java / C++ / Python    │    │  100 jobs / 20s batch │          │
-                           │    └────────────────────────-┘    └──────────┬────────────┘          │
-                           │                                               │                       │
-                           │                    ┌──────────────────────────▼────────┐             │
-                           │                    │           PostgreSQL DB             │             │
-                           │                    └───────────────────────────────────┘             │
-                           └─────────────────────────────────────────────────────────────────────┘
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     ☸  Kubernetes Cluster (k8s)                             ║
+║                                                                              ║
+║  ┌──────────┐    ┌──────────────────────────────────────────────────────┐   ║
+║  │  Users   │───►│         NGINX Ingress + Load Balancer                │   ║
+║  │ 10k-200k │    └──────────────────────┬──────────────────┬───────────┘   ║
+║  └──────────┘                           │ /                │ /socket.io     ║
+║                                         │                  │                ║
+║                            ┌────────────▼──┐   ┌──────────▼──────────────┐ ║
+║                            │  ① Next.js    │   │  ② Socket Gateway       │ ║
+║                            │  (this repo)  │   │  KEDA: 1 pod/10k users  │ ║
+║                            └───────────────┘   └──────┬──────────────────┘ ║
+║                                                        │                    ║
+║                          ┌─────────────────────────────┼──────────────────┐ ║
+║                          │             Redis            │                  │ ║
+║                          │  ┌────────────────┐         │(produce)         │ ║
+║                          │  │ Stream:events: │◄────────┘         ┌───────┐ ║
+║                          │  │    code        │                   │Pub/Sub│ ║
+║                          │  └───────┬────────┘  (publish)       │Channel│ ║
+║                          │          │(consume)  ◄────────────────┤       │ ║
+║                          │  ┌───────▼────────┐                  └───┬───┘ ║
+║                          │  │ Stream:events: │      (subscribe)     │      ║
+║                          │  │    db          │  ◄──────────────────┘       ║
+║                          │  └───────┬────────┘                             ║
+║                          └──────────┼──────────────────────────────────────┘ ║
+║                                     │                                        ║
+║  ┌──────────────────────────┐       │       ┌──────────────────────────┐     ║
+║  │  ③ Execution Engine      │◄──────┘       │  ④ Bulk Executor Workers │     ║
+║  │  KEDA lag ≥ 50           │               │  KEDA lag ≥ 200          │     ║
+║  │  Java / C++ / Python     │               │  100 jobs / 20s batch    │     ║
+║  └──────────────────────────┘               └──────────────┬───────────┘     ║
+║                                                             │                 ║
+║  ┌──────────────────────────┐               ┌──────────────▼───────────┐     ║
+║  │  ⑤ Cron Sweeper (Janitor)│               │       PostgreSQL          │     ║
+║  │  XAUTOCLAIM every 15s    │◄──────────────│                          │     ║
+║  └──────────────────────────┘               └──────────────────────────┘     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
+
+---
+
+### ✍️ Architect's Hand-Drawn Diagram
+
+> The diagram below is the original hand-drawn architecture sketch by the author — showing the full flow across all 5 modules, Kubernetes pods, KEDA scaling, Redis Streams, Pub/Sub channels, and GitOps pipeline.
+
+<div align="center">
+
+![Hand-drawn architecture diagram](https://raw.githubusercontent.com/jamesnagar11/codesaga/main/diagram/handmade.png)
+
+*Author's original architecture sketch — the blueprint behind the code*
+
+</div>
 
 ---
 
@@ -88,11 +119,11 @@
 
 ### Role in the System
 ```
-User writes code in Monaco Editor (CodeMirror)
+User writes code in CodeMirror Editor
       │
       │  emits 'codeRequestQueue' via Socket.IO
       ▼
-codesaga-ws  ──► Redis Streams ──► execution-engine ──► Pub/Sub ──► codesaga-ws ──► back to user
+codesaga-websocket-server  ──► Redis Streams ──► codesaga-execution-engine ──► Pub/Sub ──► codesaga-websocket-server ──► back to user
       │
       │  On result received: socket emits 'codeResponse' to the specific socket id
       ▼
@@ -139,7 +170,7 @@ UI updates: verdict (Accepted / WA / TLE / CE) displayed in real-time
 - Node.js 22+
 - PostgreSQL (local or cloud — [Aiven](https://aiven.io/) works great)
 - Redis (local or cloud)
-- A running instance of [`codesaga-ws`](https://github.com/jamesnagar11/codesaga-ws) (the socket server)
+- A running instance of [`codesaga-websocket-server`](https://github.com/jamesnagar11/codesaga-websocket-server) (the socket server)
 
 ---
 
@@ -316,7 +347,7 @@ Visit [http://localhost:3000](http://localhost:3000) 🎉
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google OAuth App Client Secret |
 | `GITHUB_ID` | ✅ | GitHub OAuth App Client ID |
 | `GITHUB_SECRET` | ✅ | GitHub OAuth App Client Secret |
-| `SOCKET_BACKEND_URL` | ✅ | URL to the `codesaga-ws` socket server |
+| `SOCKET_BACKEND_URL` | ✅ | URL to the `codesaga-websocket-server` socket server |
 | `NEXT_PUBLIC_PRESET_NAME` | ✅ | Cloudinary upload preset name |
 | `NEXT_PUBLIC_CLOUDINARY_NAME` | ✅ | Cloudinary cloud name |
 | `NEXT_PUBLIC_CLOUDINARY_BASE_URL` | ✅ | Cloudinary base upload URL |
