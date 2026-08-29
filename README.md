@@ -33,14 +33,14 @@
 
 ## 🏗️ Full System Architecture — Interactive Diagram
 
-> **👉 [Open Full Interactive Diagram →](https://jamesnagar11.github.io/codesaga/diagram/)**
+> **👉 [Open Full Interactive Diagram →](https://jamesnagar11.github.io/codesaga/diagram/index.html)**
 >
 > *Pan, zoom, shift arrows, hover nodes for details — all 5 modules in one view*
 
 <!-- INTERACTIVE DIAGRAM EMBED (GitHub Pages) -->
 <div align="center">
 
-[![Architecture Diagram](https://img.shields.io/badge/🔍_View_Interactive_Diagram-6366f1?style=for-the-badge&logoColor=white)](https://jamesnagar11.github.io/codesaga/diagram/)
+[![Architecture Diagram](https://img.shields.io/badge/🔍_View_Interactive_Diagram-6366f1?style=for-the-badge&logoColor=white)](https://jamesnagar11.github.io/codesaga/diagram/index.html)
 
 </div>
 
