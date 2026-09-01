@@ -1,9 +1,16 @@
-export interface ServerToClientEvents { 
+export type RateLimitedPayload = {
+  status: 429;
+  message: string;
+  retryAfter: number; // seconds
+};
+
+export interface ServerToClientEvents {
     noArg: () => void;
     basicEmit: (a: number, b: string, c: Buffer) => void;
     withAck: (d: string, callback: (e: number) => void) => void;
     workerCallback: (obj: CodeCallback) => void;
     codeResponse: (obj: CodeCallback) => void;
+    rateLimited: (payload: RateLimitedPayload) => void;
   }
   
 export  interface ClientToServerEvents {
@@ -33,6 +40,7 @@ export  type codeRequest = {
     problemURL: string;
     difficulty: string;
     topics: string[] | undefined;
+    token: string;
   }
 
 export type CodeCallback = {status: string, language: string, code: string, socketId: string,  problemTitle: string, runnerType: string, submissionTime: Date, userId: string, problemURL: string, difficulty: string, topics: string[] | undefined}

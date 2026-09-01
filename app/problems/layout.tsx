@@ -43,7 +43,6 @@ const SocketResponseListener = ({ children }: { children: React.ReactNode }) => 
 
     const handleCodeResponse = (obj: CodeCallback) => {
       if (!obj) return
-      console.log('[ProblemsLayout] codeResponse received for socket', sock.id, ':', obj.status)
       updateLoadingRef.current(false)
       updateResponseRef.current(obj)
       if (obj.runnerType === 'submit') {

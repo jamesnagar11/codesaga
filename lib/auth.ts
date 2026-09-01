@@ -1,7 +1,7 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from "next-auth/providers/google";
-
 import { globalPrismaClient } from './prisma';
+import jwt from "jsonwebtoken";
 
 const prisma = globalPrismaClient;
 export const NEXT_AUTH_CONFIG = {
@@ -89,12 +89,23 @@ export const NEXT_AUTH_CONFIG = {
               image: true,
             },
           });
+          // noTimestamp: true — omits the `iat` field so the token string is
+          // identical for the same user on every session refresh. Without this,
+          // jwt.sign() embeds a new timestamp each call, producing a different
+          // string every tab-focus, which caused the WebSocket to reconnect.
+          const jwt_token = jwt.sign(
+            { id: existingUser?.id ?? token.sub, email: token.email },
+            process.env.JWT_SECRET as string,
+            { noTimestamp: true }
+          );
           if (existingUser) {
             session.user.name = existingUser.name;
             session.user.image = existingUser.image;
             session.user.id = existingUser.id;
+            session.user.token = jwt_token;
           } else {
             session.user.id = token.sub;
+            session.user.token = jwt_token;
           }
         } catch (error) {
           console.error('Error in session callback:', error);

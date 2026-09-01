@@ -295,4 +295,24 @@ const useUser = create<UserState & UserAction>()((set)=>({
   }))
 }))
 
-export { useCodeStore, useRunCallbackStore, useProblemsData, useCalendar, useUser };
+type RateLimitState = {
+  isRateLimited: boolean;
+  rateLimitMessage: string;
+  retryAfter: number; // seconds
+};
+type RateLimitAction = {
+  setRateLimited: (message: string, retryAfter: number) => void;
+  clearRateLimited: () => void;
+};
+
+const useRateLimitStore = create<RateLimitState & RateLimitAction>()((set) => ({
+  isRateLimited: false,
+  rateLimitMessage: '',
+  retryAfter: 0,
+  setRateLimited: (message, retryAfter) =>
+    set({ isRateLimited: true, rateLimitMessage: message, retryAfter }),
+  clearRateLimited: () =>
+    set({ isRateLimited: false, rateLimitMessage: '', retryAfter: 0 }),
+}));
+
+export { useCodeStore, useRunCallbackStore, useProblemsData, useCalendar, useUser, useRateLimitStore };
