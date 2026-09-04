@@ -95,8 +95,7 @@ export const NEXT_AUTH_CONFIG = {
           // string every tab-focus, which caused the WebSocket to reconnect.
           const jwt_token = jwt.sign(
             { id: existingUser?.id ?? token.sub, email: token.email },
-            process.env.JWT_SECRET as string,
-            { noTimestamp: true }
+            process.env.JWT_SECRET as string
           );
           if (existingUser) {
             session.user.name = existingUser.name;
