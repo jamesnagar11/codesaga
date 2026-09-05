@@ -39,9 +39,8 @@ const ProblemTable: React.FC<ProblemTableProps> = ({
 
   useEffect(() => {
     async function getStatus() {
-      if(session.status === 'authenticated') {
-        // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
-        const res = await axios.get(`/api/getStatus/${session.data?.user.id}`)    
+      if(session.status === 'authenticated' && session.data?.user?.id) {
+        const res = await axios.get(`/api/getStatus/${session.data.user.id}`)    
         if(res.data.solvedProblems) {
           setProblemsStatus(new Set<string>(res.data.solvedProblems))
         }  

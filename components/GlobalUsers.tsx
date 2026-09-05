@@ -34,8 +34,7 @@ const GlobalUsers = () => {
     }
     
   async function getUser() {
-    if(!user && session.data && session.data?.user) {
-      // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
+    if(!user && session.data && session.data?.user && session.data.user.id) {
       const res = await axios.get('/api/user/getUser/'+session.data.user.id);
       if(res.data && res.data?.id) {
         setUser(res.data)

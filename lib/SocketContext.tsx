@@ -76,7 +76,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socket = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   const [isReady, setIsReady] = useState(false)
 
-  // @ts-expect-error: user token provided at runtime to the authorized users
   const userToken: string | undefined = session.data?.user?.token
 
   useEffect(() => {

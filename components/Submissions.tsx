@@ -33,12 +33,11 @@ const Submissions = ({ problemURL }: { problemURL: string }) => {
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
 
   const fetchSubmissions = useCallback(async () => {
-    if (!session?.user) return;
+    if (!session?.user || !session.user.id) return;
     setLoading(true);
     setError(null);
 
     try {
-      // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
       const res = await axios.get(`/api/submissions/${session.user.id}/${currentLanguage}/${problemURL}`);
       setSubmissions(res.data || []);
       console.log(res.data);

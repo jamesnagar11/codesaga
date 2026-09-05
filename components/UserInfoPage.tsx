@@ -101,8 +101,7 @@ const UserInfoPage = () => {
 
     useEffect(() => {
       async function getUserDetails() {
-        if(!user) {
-            // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
+        if(!user && session.data?.user?.id) {
             const res = await axios.get('/api/user/getUser/'+session.data.user.id);
             if(res.data) {
                 if(res.data?.id) {
@@ -124,10 +123,10 @@ const UserInfoPage = () => {
         }
         
     }
-      if(session.data && session.data.user) {
+      if(session.data && session.data.user && session.data.user.id) {
         getUserDetails()
       }
-    }, [session, user])
+    }, [session, user, setUser])
     
   return (
       <div className="flex min-h-[calc(100vh-4rem)] select-none">

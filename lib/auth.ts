@@ -73,43 +73,53 @@ export const NEXT_AUTH_CONFIG = {
       return true;
     },
     // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin
+    jwt: async ({ token, user }) => {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin
     session: async ({ session, token }) => {
-      if (session?.user && token?.sub) {
+      if (session?.user) {
+        const userId = (token?.id as string) || (token?.sub as string) || (session.user as { id?: string }).id;
+        if (userId) {
+          session.user.id = userId;
+        }
+
         try {
-          const existingUser = await prisma.user.findFirst({
-            where: {
-              OR: [
-                { id: token.sub },
-                ...(session.user.email ? [{ email: session.user.email }] : []),
-              ],
-            },
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          });
-          // noTimestamp: true — omits the `iat` field so the token string is
-          // identical for the same user on every session refresh. Without this,
-          // jwt.sign() embeds a new timestamp each call, producing a different
-          // string every tab-focus, which caused the WebSocket to reconnect.
+          let existingUser = null;
+          if (userId || session.user.email) {
+            existingUser = await prisma.user.findFirst({
+              where: {
+                OR: [
+                  ...(userId ? [{ id: userId }] : []),
+                  ...(session.user.email ? [{ email: session.user.email }] : []),
+                ],
+              },
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            });
+          }
+
+          if (existingUser) {
+            session.user.name = existingUser.name || session.user.name;
+            session.user.image = existingUser.image || session.user.image;
+            session.user.id = existingUser.id;
+          }
+
+          const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || "default_codesaga_jwt_secret";
           const jwt_token = jwt.sign(
-            { id: existingUser?.id ?? token.sub, email: token.email },
-            process.env.JWT_SECRET as string,
+            { id: session.user.id, email: session.user.email },
+            secret,
             { noTimestamp: true }
           );
-          if (existingUser) {
-            session.user.name = existingUser.name;
-            session.user.image = existingUser.image;
-            session.user.id = existingUser.id;
-            session.user.token = jwt_token;
-          } else {
-            session.user.id = token.sub;
-            session.user.token = jwt_token;
-          }
+          session.user.token = jwt_token;
         } catch (error) {
           console.error('Error in session callback:', error);
-          return session;
         }
       }
       return session;

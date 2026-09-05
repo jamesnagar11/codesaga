@@ -45,9 +45,8 @@ const RankingsPage = () => {
 
   useEffect(() => {
     async function getData() {
-      if(session.data?.user) {
+      if(session.data?.user && session.data.user.id) {
           if(!userData) {
-              // @ts-expect-error:Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
               const res = await axios.get(`/api/rankings/${session.data.user.id}`)
               console.log(res.data);
               if(res.data?.id) {

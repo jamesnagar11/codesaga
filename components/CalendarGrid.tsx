@@ -31,9 +31,8 @@ const CalendarGrid = () => {
 
   useEffect(() => {
     async function getMonthlyActivity() {
-      if (session && session.data && session.data.user) {
+      if (session && session.data && session.data.user && session.data.user.id) {
         try {
-          // @ts-expect-error: Not able to tell ts compiler that i provided it at runtime while signin otherwise user cannot reach here
           const res = await axios.get(`/api/monthlyActivity/${session.data.user.id}`);
           if (res.data && res.data.dailyActivity) {
             for (const activity of res.data.dailyActivity) {
