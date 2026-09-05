@@ -95,7 +95,8 @@ export const NEXT_AUTH_CONFIG = {
           // string every tab-focus, which caused the WebSocket to reconnect.
           const jwt_token = jwt.sign(
             { id: existingUser?.id ?? token.sub, email: token.email },
-            process.env.JWT_SECRET as string
+            process.env.JWT_SECRET as string,
+            { noTimestamp: true }
           );
           if (existingUser) {
             session.user.name = existingUser.name;
@@ -108,7 +109,7 @@ export const NEXT_AUTH_CONFIG = {
           }
         } catch (error) {
           console.error('Error in session callback:', error);
-          return null;
+          return session;
         }
       }
       return session;
